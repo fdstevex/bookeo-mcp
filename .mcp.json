@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "bookeo": {
+      "type": "stdio",
+      "command": "/Users/stevex/src/escapekey/bookeo/.venv/bin/python",
+      "args": ["-m", "bookeo_mcp.server"],
+      "cwd": "/Users/stevex/src/escapekey/bookeo"
+    }
+  }
+}

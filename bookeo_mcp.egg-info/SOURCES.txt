@@ -1,0 +1,10 @@
+pyproject.toml
+bookeo_mcp/__init__.py
+bookeo_mcp/bookeo_client.py
+bookeo_mcp/server.py
+bookeo_mcp.egg-info/PKG-INFO
+bookeo_mcp.egg-info/SOURCES.txt
+bookeo_mcp.egg-info/dependency_links.txt
+bookeo_mcp.egg-info/entry_points.txt
+bookeo_mcp.egg-info/requires.txt
+bookeo_mcp.egg-info/top_level.txt
