@@ -20,9 +20,16 @@ def get_transport_security() -> TransportSecuritySettings:
 
     if allowed_hosts_env:
         # Parse comma-separated list of allowed hosts
-        allowed_hosts = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
+        allowed_hosts = []
+        for h in allowed_hosts_env.split(","):
+            h = h.strip()
+            if h:
+                allowed_hosts.append(h)
+                # Also add without port wildcard for hosts that come without port
+                if h.endswith(":*"):
+                    allowed_hosts.append(h[:-2])
         # Add standard localhost entries
-        allowed_hosts.extend(["localhost:*", "127.0.0.1:*"])
+        allowed_hosts.extend(["localhost:*", "localhost", "127.0.0.1:*", "127.0.0.1"])
         return TransportSecuritySettings(
             enable_dns_rebinding_protection=True,
             allowed_hosts=allowed_hosts,
