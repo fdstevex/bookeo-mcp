@@ -7,6 +7,12 @@ bookeo:
   apiKey: "not-set"
   apiSecret: "not-set"
 
+# MCP server authentication
+# If set, all requests must include "Authorization: Bearer <token>" header
+# Leave empty to disable authentication
+auth:
+  token: ""
+
 # Ingress configuration
 ingress:
   host: "not-set"

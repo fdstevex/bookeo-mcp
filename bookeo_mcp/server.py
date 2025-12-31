@@ -1,14 +1,53 @@
 """Bookeo MCP Server - Look up customer bookings and payment information."""
 
 import argparse
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from .bookeo_client import BookeoClient
 
 mcp = FastMCP("Bookeo")
+
+
+class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
+    """Middleware that validates Bearer token from Authorization header."""
+
+    async def dispatch(self, request: Request, call_next):
+        expected_token = os.environ.get("AUTH_TOKEN", "")
+
+        # Skip auth if no token is configured
+        if not expected_token:
+            return await call_next(request)
+
+        auth_header = request.headers.get("authorization", "")
+
+        if not auth_header:
+            return JSONResponse(
+                {"error": "Access denied: missing Authorization header"},
+                status_code=401,
+            )
+
+        if not auth_header.lower().startswith("bearer "):
+            return JSONResponse(
+                {"error": "Access denied: invalid Authorization header format"},
+                status_code=401,
+            )
+
+        token = auth_header[7:].strip()  # Skip "Bearer " prefix
+
+        if token != expected_token:
+            return JSONResponse(
+                {"error": "Access denied: invalid token"},
+                status_code=401,
+            )
+
+        return await call_next(request)
 
 
 def parse_args() -> argparse.Namespace:
@@ -16,22 +55,23 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Bookeo MCP Server")
     parser.add_argument(
         "--transport",
-        choices=["stdio", "sse"],
+        choices=["stdio", "streamable-http"],
         default="stdio",
         help="Transport type (default: stdio)",
     )
     parser.add_argument(
         "--host",
         default="127.0.0.1",
-        help="Host for SSE transport (default: 127.0.0.1)",
+        help="Host for HTTP transport (default: 127.0.0.1)",
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8000,
-        help="Port for SSE transport (default: 8000)",
+        help="Port for HTTP transport (default: 8000)",
     )
     return parser.parse_args()
+
 
 _client: Optional[BookeoClient] = None
 
@@ -261,12 +301,22 @@ async def get_booking_payments(booking_number: str) -> dict:
         return {"error": f"Could not fetch payments: {str(e)}"}
 
 
+def create_authenticated_app():
+    """Create the Starlette app with authentication middleware."""
+    app = mcp.streamable_http_app()
+    app.add_middleware(BearerTokenAuthMiddleware)
+    return app
+
+
 def main():
     """Run the MCP server with the configured transport."""
     args = parse_args()
 
-    if args.transport == "sse":
-        mcp.run(transport="sse", host=args.host, port=args.port)
+    if args.transport == "streamable-http":
+        import uvicorn
+
+        app = create_authenticated_app()
+        uvicorn.run(app, host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
 

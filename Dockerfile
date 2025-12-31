@@ -9,8 +9,12 @@ COPY bookeo_mcp/ bookeo_mcp/
 # Install the package
 RUN pip install --no-cache-dir .
 
-# Expose port for SSE transport (if used)
+# Expose port for HTTP transport
 EXPOSE 8000
 
-# Run the MCP server with SSE transport
-CMD ["bookeo-mcp", "--transport", "sse", "--host", "0.0.0.0", "--port", "8000"]
+# Disable DNS rebinding protection for containerized deployments
+# (security handled by ingress/reverse proxy)
+ENV FASTMCP_TRANSPORT_SECURITY__ENABLE_DNS_REBINDING_PROTECTION=false
+
+# Run the MCP server with Streamable HTTP transport
+CMD ["bookeo-mcp", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]

@@ -6,3 +6,4 @@ Requires-Python: >=3.10
 Requires-Dist: mcp[cli]>=1.0.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: uvicorn>=0.30.0
