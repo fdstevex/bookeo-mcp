@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.git/
+.gitignore
+.claude/
+.mcp.json
+README.md
+.env

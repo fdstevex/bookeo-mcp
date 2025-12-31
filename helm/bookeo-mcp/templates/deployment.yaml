@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bookeo-mcp
+  labels:
+    app: bookeo-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bookeo-mcp
+  template:
+    metadata:
+      labels:
+        app: bookeo-mcp
+    spec:
+      containers:
+        - name: bookeo-mcp
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          envFrom:
+            - secretRef:
+                name: bookeo-mcp
+          ports:
+            - name: http
+              containerPort: 8000

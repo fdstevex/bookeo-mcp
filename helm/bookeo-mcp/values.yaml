@@ -1,0 +1,12 @@
+image:
+  repository: ghcr.io/fdstevex/bookeo-mcp
+  tag: latest
+
+# Bookeo API credentials
+bookeo:
+  apiKey: "not-set"
+  apiSecret: "not-set"
+
+# Ingress configuration
+ingress:
+  host: "not-set"
