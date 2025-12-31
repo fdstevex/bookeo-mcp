@@ -16,3 +16,8 @@ auth:
 # Ingress configuration
 ingress:
   host: "not-set"
+
+# Allowed hosts for DNS rebinding protection (comma-separated)
+# Set this to your ingress host with wildcard port, e.g., "ekbookeo.fallday.ca:*"
+# If empty, DNS rebinding protection is disabled
+allowedHosts: ""

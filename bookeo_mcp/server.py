@@ -6,13 +6,35 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from .bookeo_client import BookeoClient
 
-mcp = FastMCP("Bookeo")
+
+def get_transport_security() -> TransportSecuritySettings:
+    """Configure transport security based on environment."""
+    allowed_hosts_env = os.environ.get("ALLOWED_HOSTS", "")
+
+    if allowed_hosts_env:
+        # Parse comma-separated list of allowed hosts
+        allowed_hosts = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
+        # Add standard localhost entries
+        allowed_hosts.extend(["localhost:*", "127.0.0.1:*"])
+        return TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=allowed_hosts,
+        )
+    else:
+        # Disable protection if no hosts configured (for local development)
+        return TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
+
+
+mcp = FastMCP("Bookeo", transport_security=get_transport_security())
 
 
 class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
