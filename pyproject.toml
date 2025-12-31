@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-bookeo-mcp = "bookeo_mcp.server:mcp.run"
+bookeo-mcp = "bookeo_mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

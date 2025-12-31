@@ -1,5 +1,6 @@
 """Bookeo MCP Server - Look up customer bookings and payment information."""
 
+import argparse
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -8,6 +9,29 @@ from mcp.server.fastmcp import FastMCP
 from .bookeo_client import BookeoClient
 
 mcp = FastMCP("Bookeo")
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for transport configuration."""
+    parser = argparse.ArgumentParser(description="Bookeo MCP Server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse"],
+        default="stdio",
+        help="Transport type (default: stdio)",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host for SSE transport (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for SSE transport (default: 8000)",
+    )
+    return parser.parse_args()
 
 _client: Optional[BookeoClient] = None
 
@@ -237,5 +261,15 @@ async def get_booking_payments(booking_number: str) -> dict:
         return {"error": f"Could not fetch payments: {str(e)}"}
 
 
+def main():
+    """Run the MCP server with the configured transport."""
+    args = parse_args()
+
+    if args.transport == "sse":
+        mcp.run(transport="sse", host=args.host, port=args.port)
+    else:
+        mcp.run(transport="stdio")
+
+
 if __name__ == "__main__":
-    mcp.run()
+    main()

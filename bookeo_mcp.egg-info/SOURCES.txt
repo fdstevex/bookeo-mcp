@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 bookeo_mcp/__init__.py
 bookeo_mcp/bookeo_client.py
