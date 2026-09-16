@@ -1,0 +1,43 @@
+# ekbookeo.fallday.ca on the Oracle VM (ovm.fallday.ca), behind Traefik on
+# infra-network.
+#
+# Lives at ~/apps/bookeo on the VM; this file in the repo is the source of
+# truth, copy it over when it changes. .env there holds API_KEY, API_SECRET,
+# AUTH_TOKEN, ALLOWED_HOSTS and IMAGE_TAG (set by deploy.sh from CI). These are
+# the same variables the Helm chart used to put in its Secret.
+#
+# Usage:
+#   docker compose pull && docker compose up -d
+
+services:
+  web:
+    image: ghcr.io/fdstevex/bookeo-mcp:${IMAGE_TAG:-latest}
+    container_name: bookeo-web
+    restart: unless-stopped
+    environment:
+      API_KEY: ${API_KEY}
+      API_SECRET: ${API_SECRET}
+      AUTH_TOKEN: ${AUTH_TOKEN}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-ekbookeo.fallday.ca:*}
+    networks:
+      - infra-network
+    # No dedicated health endpoint; an unauthenticated GET to /mcp gets a 401
+    # (or 4xx from the MCP transport) once uvicorn is up, and a connection
+    # error before that. The image has python but no curl or wget.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, urllib.error\ntry:\n    urllib.request.urlopen('http://127.0.0.1:8000/mcp', timeout=5)\nexcept urllib.error.HTTPError:\n    pass"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bookeo.rule=Host(`ekbookeo.fallday.ca`)"
+      - "traefik.http.routers.bookeo.entrypoints=websecure"
+      - "traefik.http.routers.bookeo.tls=true"
+      - "traefik.http.routers.bookeo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.bookeo.loadbalancer.server.port=8000"
+
+networks:
+  infra-network:
+    external: true

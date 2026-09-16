@@ -1,4 +1,4 @@
-name: Build and Push to GHCR
+name: Build and Deploy
 
 on:
   push:
@@ -10,12 +10,17 @@ on:
     branches:
       - main
 
+# One deploy at a time so runs don't overlap on the VM.
+concurrency:
+  group: deploy-ovm
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,14 +28,17 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -47,13 +55,30 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
 
+      # The Oracle VM is arm64; amd64 is kept for local runs.
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
+          platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The deploy key is restricted on the VM to running
+      # ~/apps/bookeo/deploy.sh, which receives the image tag as the SSH command.
+      - name: Deploy to Oracle VM
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          OVM_DEPLOY_KEY: ${{ secrets.OVM_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$OVM_DEPLOY_KEY" > ~/.ssh/ovm_deploy
+          chmod 600 ~/.ssh/ovm_deploy
+          echo "ovm.fallday.ca ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJD//XNLAtsMdDvq+eyCeLbY8+xY8bqTFJk0dPhi13g6" >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/ovm_deploy -o StrictHostKeyChecking=yes ubuntu@ovm.fallday.ca "${{ github.sha }}"

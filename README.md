@@ -106,18 +106,23 @@ Returns payment breakdown including methods, amounts, and whether payments were 
 bookeo-mcp
 ```
 
-### SSE Transport
+### Streamable HTTP Transport
 
-For network-accessible deployments, use SSE transport:
+For network-accessible deployments, use the Streamable HTTP transport:
 
 ```bash
-bookeo-mcp --transport sse --host 0.0.0.0 --port 8000
+bookeo-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 Options:
-- `--transport`: `stdio` (default) or `sse`
+- `--transport`: `stdio` (default) or `streamable-http`
 - `--host`: Host to bind to (default: `127.0.0.1`)
 - `--port`: Port to listen on (default: `8000`)
+
+Environment variables for the HTTP transport:
+- `AUTH_TOKEN`: if set, every request must carry `Authorization: Bearer <token>`
+- `ALLOWED_HOSTS`: comma-separated hosts for DNS rebinding protection, e.g.
+  `ekbookeo.fallday.ca:*`; leave unset to disable it for local development
 
 ## Docker
 
@@ -143,14 +148,44 @@ docker run -p 8000:8000 \
   bookeo-mcp
 ```
 
-The Docker image runs with SSE transport on port 8000 by default.
+The Docker image runs with Streamable HTTP transport on port 8000 by default.
+The MCP endpoint is `/mcp`.
 
-### Configuring Claude Code with SSE
+## Deployment
 
-To connect Claude Code to an SSE MCP server:
+The server runs as a single container on the Oracle VM (`ovm.fallday.ca`,
+arm64) at `https://ekbookeo.fallday.ca/mcp`, behind the shared Traefik on
+`infra-network`.
+
+Push to `main` and GitHub Actions builds a multi-arch (amd64 + arm64) image,
+pushes it to `ghcr.io/fdstevex/bookeo-mcp:<sha>` (and `:latest`), then SSHes
+to the VM with the sha. The deploy key is a forced command in the VM's
+`~/.ssh/authorized_keys` that can only run `~/apps/bookeo/deploy.sh`, which
+writes the tag to `.env` and runs `docker compose pull && up -d`.
+
+### VM prerequisites
+
+- `~/apps/bookeo/` on the VM holding `docker-compose.yml`, `deploy.sh` and a
+  `.env` with `API_KEY`, `API_SECRET`, `AUTH_TOKEN`, `ALLOWED_HOSTS` and
+  `IMAGE_TAG`. The compose file and script are the copies in `ovm/` in this
+  repo; that directory is the source of truth, `scp` it over when it changes.
+- The public half of the CI deploy key in `~/.ssh/authorized_keys`, with
+  `command="/home/ubuntu/apps/bookeo/deploy.sh"` and the usual restrictions.
+  The private half is the `OVM_DEPLOY_KEY` repo secret.
+
+### Manual deploy
+
+```
+ssh ubuntu@ovm.fallday.ca ~/apps/bookeo/deploy.sh <sha-or-latest>
+```
+
+### Configuring Claude Code with the HTTP transport
+
+To connect Claude Code to the deployed server:
 
 ```bash
-claude mcp add --transport sse bookeo http://localhost:8000/sse
+claude mcp add --transport http bookeo https://ekbookeo.fallday.ca/mcp \
+  --header "Authorization: Bearer <AUTH_TOKEN>"
 ```
 
 Or in `.mcp.json`:
@@ -159,8 +194,11 @@ Or in `.mcp.json`:
 {
   "mcpServers": {
     "bookeo": {
-      "type": "sse",
-      "url": "http://localhost:8000/sse"
+      "type": "http",
+      "url": "https://ekbookeo.fallday.ca/mcp",
+      "headers": {
+        "Authorization": "Bearer <AUTH_TOKEN>"
+      }
     }
   }
 }
