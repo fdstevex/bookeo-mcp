@@ -66,6 +66,10 @@ Alternatively, add to your `.mcp.json` file (project directory for project-speci
 
 **Note:** If using `.mcp.json`, you can alternatively store credentials in a `.env` file in the project directory instead of in the config.
 
+Dates passed to the search tools are interpreted in the business's timezone,
+`America/Toronto` by default. Set `BOOKEO_TIMEZONE` to an IANA zone name to
+change it.
+
 ## Available Tools
 
 ### search_bookings_by_customer

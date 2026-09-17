@@ -175,8 +175,9 @@ async def search_bookings_by_customer(
     days_back = min(days_back, 365)
 
     client = get_client()
-    end_time = datetime.now()
-    start_time = end_time - timedelta(days=days_back)
+    # search_bookings takes an exclusive end date, so this runs through today
+    end_time = client.today() + timedelta(days=1)
+    start_time = end_time - timedelta(days=days_back + 1)
 
     results = []
     name_lower = customer_name.lower() if customer_name else ""

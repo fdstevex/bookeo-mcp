@@ -18,10 +18,14 @@ class BookeoClient:
     BASE_URL = "https://api.bookeo.com/v2"
 
     def __init__(self):
-        self.api_key = os.getenv("API_KEY")
-        self.api_secret = os.getenv("API_SECRET")
-        if not self.api_key or not self.api_secret:
+        api_key = os.getenv("API_KEY")
+        api_secret = os.getenv("API_SECRET")
+        if not api_key or not api_secret:
             raise ValueError("API_KEY and API_SECRET must be set in .env")
+        self.api_key = api_key
+        self.api_secret = api_secret
+        # Dates are interpreted in the business's timezone
+        self.local_tz = ZoneInfo(os.getenv("BOOKEO_TIMEZONE", "America/Toronto"))
         self._client: Optional[httpx.AsyncClient] = None
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -32,14 +36,17 @@ class BookeoClient:
     async def _request(self, endpoint: str, params: Optional[dict] = None) -> dict:
         """Make authenticated request with rate limiting."""
         client = await self._get_client()
-        params = params or {}
-        params["apiKey"] = self.api_key
-        params["secretKey"] = self.api_secret
+        # Credentials go in headers, not the query string, so they never end up
+        # in URLs quoted by httpx exceptions or request logs.
+        headers = {
+            "X-Bookeo-apiKey": self.api_key,
+            "X-Bookeo-secretKey": self.api_secret,
+        }
 
         url = f"{self.BASE_URL}{endpoint}"
 
         while True:
-            response = await client.get(url, params=params)
+            response = await client.get(url, params=params, headers=headers)
 
             if response.status_code == 429:
                 retry_after = int(response.headers.get("Retry-After", 60))
@@ -48,6 +55,11 @@ class BookeoClient:
 
             response.raise_for_status()
             return response.json()
+
+    def today(self) -> datetime:
+        """Midnight today in the business's timezone, as a naive datetime."""
+        now = datetime.now(self.local_tz)
+        return now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
     async def get_booking(self, booking_number: str) -> dict:
         """Get a single booking by number."""
@@ -67,20 +79,25 @@ class BookeoClient:
         expand_customer: bool = True,
         include_canceled: bool = False,
     ) -> AsyncGenerator[dict, None]:
-        """Search bookings with automatic pagination and 30-day chunking."""
-        # Use local timezone (Pacific) for date interpretation, convert to UTC for API
-        local_tz = ZoneInfo("America/Los_Angeles")
+        """Search bookings with automatic pagination and 30-day chunking.
+
+        start_time and end_time are naive dates in the business's timezone;
+        end_time is exclusive (pass the day after the last day wanted).
+        """
+        # Interpret dates in the business's timezone, convert to UTC for the API
+        local_tz = self.local_tz
         utc_tz = ZoneInfo("UTC")
 
-        current_start = start_time
+        current_start = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0)
 
         while current_start < end_time:
             chunk_end = min(current_start + timedelta(days=30), end_time)
 
-            # Convert local dates to UTC for Bookeo API
-            # Start at midnight local time, end at 23:59:59 local time
-            start_local = current_start.replace(hour=0, minute=0, second=0, tzinfo=local_tz)
-            end_local = chunk_end.replace(hour=23, minute=59, second=59, tzinfo=local_tz)
+            # Each chunk runs from midnight local time up to the second before
+            # the (exclusive) chunk end, so consecutive chunks never overlap.
+            start_local = current_start.replace(tzinfo=local_tz)
+            end_local = chunk_end.replace(tzinfo=local_tz) - timedelta(seconds=1)
 
             start_utc = start_local.astimezone(utc_tz)
             end_utc = end_local.astimezone(utc_tz)
