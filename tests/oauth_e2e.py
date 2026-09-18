@@ -59,6 +59,8 @@ try:
     r = c.post("/login", data={"tx": tx[:-4] + "AAAA", "password": TOKEN})
     results.append(ok("tampered login transaction rejected even with right token", r.status_code == 400))
 
+    r = c.post("/login", data={"tx": tx, "password": f"  {TOKEN}\n"})
+    results.append(ok("token pasted with stray whitespace is accepted", r.status_code == 302))
     r = c.post("/login", data={"tx": tx, "password": TOKEN})
     back = urlparse(r.headers.get("location","")); bq = parse_qs(back.query)
     results.append(ok("right token -> redirect to client with code+state", r.status_code == 302 and back.netloc == "claude.ai" and bq.get("state") == ["st123"] and "code" in bq))

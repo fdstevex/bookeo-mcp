@@ -171,7 +171,8 @@ class BookeoOAuthProvider(
             tx, password = request.query_params.get("tx", ""), None
         else:
             form = await request.form()
-            tx, password = str(form.get("tx", "")), str(form.get("password", ""))
+            # Pasted tokens pick up stray whitespace; a token never contains any
+            tx, password = str(form.get("tx", "")), str(form.get("password", "")).strip()
 
         login = self._signer.verify("login", tx)
         if login is None:
@@ -338,7 +339,7 @@ Enter the server's access token to allow it.</p>{error}
 <form method="post" action="/login">
   <input type="hidden" name="tx" value="{html.escape(tx, quote=True)}">
   <input type="password" name="password" placeholder="Access token"
-         autocomplete="current-password" autofocus required>
+         autocomplete="off" data-1p-ignore data-lpignore="true" autofocus required>
   <button type="submit">Allow access</button>
 </form>"""
     )
