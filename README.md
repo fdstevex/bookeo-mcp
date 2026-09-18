@@ -149,7 +149,8 @@ Environment variables for the HTTP transport:
   or an OAuth access token obtained by signing in with it (see
   [Claude connectors](#adding-it-to-claude-as-a-connector))
 - `PUBLIC_URL`: the URL clients reach the server at, advertised in the OAuth
-  metadata (default `http://localhost:8000`)
+  metadata (default: `https://` plus the first `ALLOWED_HOSTS` entry, else
+  `http://localhost:8000`)
 - `ALLOWED_HOSTS`: comma-separated hosts for DNS rebinding protection, e.g.
   `ekbookeo.fallday.ca:*`; leave unset to disable it for local development
 

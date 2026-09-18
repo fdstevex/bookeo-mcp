@@ -53,8 +53,15 @@ def get_auth() -> tuple[Optional[AuthSettings], Optional[BookeoOAuthProvider]]:
     if not auth_token:
         return None, None
 
-    # Where clients reach this server; OAuth metadata has to advertise it
-    public_url = os.environ.get("PUBLIC_URL", "http://localhost:8000").rstrip("/")
+    # Where clients reach this server; OAuth metadata has to advertise it.
+    # ALLOWED_HOSTS already names the public host, so it stands in when
+    # PUBLIC_URL is not set.
+    allowed_host = os.environ.get("ALLOWED_HOSTS", "").split(",")[0].strip()
+    public_url = (
+        os.environ.get("PUBLIC_URL")
+        or (f"https://{allowed_host.removesuffix(':*')}" if allowed_host else "")
+        or "http://localhost:8000"
+    ).rstrip("/")
     settings = AuthSettings(
         issuer_url=public_url,
         resource_server_url=f"{public_url}/mcp",
