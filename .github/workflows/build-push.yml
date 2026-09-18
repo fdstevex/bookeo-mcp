@@ -102,12 +102,13 @@ jobs:
       - name: Check the deployed server
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Retries cover the moment Traefik has no backend while the
+          # container is replaced. No pipe: the default shell lacks pipefail.
           for attempt in $(seq 1 12); do
-            if issuer=$(curl -fsS -m 10 https://ekbookeo.fallday.ca/.well-known/oauth-authorization-server | jq -r .issuer); then
-              echo "issuer: $issuer"
-              [ "${issuer%/}" = "https://ekbookeo.fallday.ca" ] && exit 0
-              echo "unexpected issuer" >&2; exit 1
-            fi
+            body=$(curl -fsS -m 10 https://ekbookeo.fallday.ca/.well-known/oauth-authorization-server) || body=""
+            issuer=$(jq -r '.issuer // empty' <<<"$body" 2>/dev/null) || issuer=""
+            echo "attempt $attempt: issuer=${issuer:-none}"
+            [ "${issuer%/}" = "https://ekbookeo.fallday.ca" ] && exit 0
             sleep 5
           done
-          echo "server did not answer with OAuth metadata" >&2; exit 1
+          echo "server did not advertise the expected OAuth issuer" >&2; exit 1
