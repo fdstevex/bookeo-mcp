@@ -3,12 +3,17 @@
 import asyncio
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import AsyncGenerator, Optional
 from zoneinfo import ZoneInfo
 
 import httpx
 from dotenv import load_dotenv
 
+# Look next to the package first: clients like the Claude desktop app launch
+# the server from an unrelated working directory, where the default search
+# (which starts from the cwd in some launch modes) never finds the repo's .env.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 load_dotenv()
 
 

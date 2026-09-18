@@ -66,6 +66,27 @@ Alternatively, add to your `.mcp.json` file (project directory for project-speci
 
 **Note:** If using `.mcp.json`, you can alternatively store credentials in a `.env` file in the project directory instead of in the config.
 
+## Configuring with the Claude desktop app
+
+Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json`
+(Settings → Developer → Edit Config), then quit and reopen the app:
+
+```json
+{
+  "mcpServers": {
+    "bookeo": {
+      "command": "/path/to/bookeo/.venv/bin/python",
+      "args": ["-m", "bookeo_mcp.server"]
+    }
+  }
+}
+```
+
+The desktop app ignores `cwd` and starts the server from an unrelated
+directory, so credentials are read from the `.env` next to the `bookeo_mcp`
+package (the project directory for an editable install). Alternatively put
+`API_KEY` and `API_SECRET` in an `env` block as above.
+
 Dates passed to the search tools are interpreted in the business's timezone,
 `America/Toronto` by default. Set `BOOKEO_TIMEZONE` to an IANA zone name to
 change it.
