@@ -190,14 +190,19 @@ Push to `main` and GitHub Actions builds a multi-arch (amd64 + arm64) image,
 pushes it to `ghcr.io/fdstevex/bookeo-mcp:<sha>` (and `:latest`), then SSHes
 to the VM with the sha. The deploy key is a forced command in the VM's
 `~/.ssh/authorized_keys` that can only run `~/apps/bookeo/deploy.sh`, which
-writes the tag to `.env` and runs `docker compose pull && up -d`.
+writes the tag to `.env`, pulls the image, takes `docker-compose.yml` out of it
+and runs `docker compose up -d`. The compose file ships in the image so that it
+deploys with the code while the key still carries nothing but a tag. CI runs
+`tests/oauth_e2e.py` before building and, after deploying, checks that the
+live server serves its OAuth metadata.
 
 ### VM prerequisites
 
 - `~/apps/bookeo/` on the VM holding `docker-compose.yml`, `deploy.sh` and a
   `.env` with `API_KEY`, `API_SECRET`, `AUTH_TOKEN`, `ALLOWED_HOSTS` and
-  `IMAGE_TAG`. The compose file and script are the copies in `ovm/` in this
-  repo; that directory is the source of truth, `scp` it over when it changes.
+  `IMAGE_TAG`. Both files come from `ovm/` in this repo. CI keeps
+  `docker-compose.yml` current; `deploy.sh` is the one file to `scp` over by
+  hand when it changes, since it is what the deploy key is locked to.
 - The public half of the CI deploy key in `~/.ssh/authorized_keys`, with
   `command="/home/ubuntu/apps/bookeo/deploy.sh"` and the usual restrictions.
   The private half is the `OVM_DEPLOY_KEY` repo secret.

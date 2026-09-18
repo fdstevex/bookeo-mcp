@@ -30,6 +30,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # Walks the OAuth flow Claude connectors use against a local server, so
+      # a change that would lock them out fails here, before anything ships.
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test OAuth flow
+        run: |
+          pip install --quiet .
+          python tests/oauth_e2e.py
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
@@ -72,6 +84,8 @@ jobs:
 
       # The deploy key is restricted on the VM to running
       # ~/apps/bookeo/deploy.sh, which receives the image tag as the SSH command.
+      # The script takes docker-compose.yml from the image, so ovm/ changes
+      # deploy from here too; only deploy.sh itself is copied over by hand.
       - name: Deploy to Oracle VM
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -82,3 +96,18 @@ jobs:
           chmod 600 ~/.ssh/ovm_deploy
           echo "ovm.fallday.ca ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJD//XNLAtsMdDvq+eyCeLbY8+xY8bqTFJk0dPhi13g6" >> ~/.ssh/known_hosts
           ssh -i ~/.ssh/ovm_deploy -o StrictHostKeyChecking=yes ubuntu@ovm.fallday.ca "${{ github.sha }}"
+
+      # Connectors find the sign-in endpoints through this metadata; a wrong
+      # PUBLIC_URL or a container that did not come up shows here.
+      - name: Check the deployed server
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          for attempt in $(seq 1 12); do
+            if issuer=$(curl -fsS -m 10 https://ekbookeo.fallday.ca/.well-known/oauth-authorization-server | jq -r .issuer); then
+              echo "issuer: $issuer"
+              [ "${issuer%/}" = "https://ekbookeo.fallday.ca" ] && exit 0
+              echo "unexpected issuer" >&2; exit 1
+            fi
+            sleep 5
+          done
+          echo "server did not answer with OAuth metadata" >&2; exit 1

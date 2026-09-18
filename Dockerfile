@@ -5,6 +5,9 @@ WORKDIR /app
 # Copy project files
 COPY pyproject.toml .
 COPY bookeo_mcp/ bookeo_mcp/
+# deploy.sh on the VM reads the compose file out of the image it is deploying,
+# so the running stack always matches this commit
+COPY ovm/docker-compose.yml ovm/docker-compose.yml
 
 # Install the package
 RUN pip install --no-cache-dir .

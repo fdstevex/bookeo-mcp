@@ -1,8 +1,8 @@
 # ekbookeo.fallday.ca on the Oracle VM (ovm.fallday.ca), behind Traefik on
 # infra-network.
 #
-# Lives at ~/apps/bookeo on the VM; this file in the repo is the source of
-# truth, copy it over when it changes. .env there holds API_KEY, API_SECRET,
+# Lives at ~/apps/bookeo on the VM. This file in the repo is the source of
+# truth: it is baked into the image and deploy.sh installs it from there. .env there holds API_KEY, API_SECRET,
 # AUTH_TOKEN, ALLOWED_HOSTS and IMAGE_TAG (set by deploy.sh from CI). These are
 # the same variables the Helm chart used to put in its Secret.
 #
