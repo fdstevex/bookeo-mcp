@@ -145,7 +145,11 @@ Options:
 - `--port`: Port to listen on (default: `8000`)
 
 Environment variables for the HTTP transport:
-- `AUTH_TOKEN`: if set, every request must carry `Authorization: Bearer <token>`
+- `AUTH_TOKEN`: if set, `/mcp` requires either `Authorization: Bearer <token>`
+  or an OAuth access token obtained by signing in with it (see
+  [Claude connectors](#adding-it-to-claude-as-a-connector))
+- `PUBLIC_URL`: the URL clients reach the server at, advertised in the OAuth
+  metadata (default `http://localhost:8000`)
 - `ALLOWED_HOSTS`: comma-separated hosts for DNS rebinding protection, e.g.
   `ekbookeo.fallday.ca:*`; leave unset to disable it for local development
 
@@ -203,6 +207,23 @@ writes the tag to `.env` and runs `docker compose pull && up -d`.
 ```
 ssh ubuntu@ovm.fallday.ca ~/apps/bookeo/deploy.sh <sha-or-latest>
 ```
+
+### Adding it to Claude as a connector
+
+Claude's custom connectors (claude.ai, the desktop app and the mobile apps)
+only authenticate with OAuth; they cannot send a fixed header. The server is
+its own single-user OAuth authorization server for this:
+
+1. In Claude, Settings → Connectors → Add custom connector, URL
+   `https://ekbookeo.fallday.ca/mcp`. Leave the OAuth client fields empty;
+   Claude registers itself.
+2. Connect. The browser opens the server's sign-in page; paste `AUTH_TOKEN`.
+
+The connector belongs to the Claude account, so it then works on every
+device. Nothing is stored server-side: client ids, codes and tokens are signed
+with a key derived from `AUTH_TOKEN`, so they survive redeploys, and rotating
+`AUTH_TOKEN` signs every connector out. `tests/oauth_e2e.py` exercises the
+whole flow against a local server.
 
 ### Configuring Claude Code with the HTTP transport
 

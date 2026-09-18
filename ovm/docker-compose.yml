@@ -19,6 +19,8 @@ services:
       API_SECRET: ${API_SECRET}
       AUTH_TOKEN: ${AUTH_TOKEN}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-ekbookeo.fallday.ca:*}
+      # Advertised in the OAuth metadata that Claude connectors discover
+      PUBLIC_URL: ${PUBLIC_URL:-https://ekbookeo.fallday.ca}
     networks:
       - infra-network
     # No dedicated health endpoint; an unauthenticated GET to /mcp gets a 401

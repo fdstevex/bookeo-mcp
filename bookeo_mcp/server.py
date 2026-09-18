@@ -5,13 +5,14 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import Response
 
 from .bookeo_client import BookeoClient
+from .oauth import BookeoOAuthProvider
 
 
 def get_transport_security() -> TransportSecuritySettings:
@@ -41,42 +42,41 @@ def get_transport_security() -> TransportSecuritySettings:
         )
 
 
-mcp = FastMCP("Bookeo", transport_security=get_transport_security())
+def get_auth() -> tuple[Optional[AuthSettings], Optional[BookeoOAuthProvider]]:
+    """Configure authentication for the HTTP transport.
+
+    With AUTH_TOKEN set, /mcp accepts either that token as a Bearer header or
+    an OAuth access token obtained by logging in with it; see oauth.py. Without
+    it the server is open, for local development.
+    """
+    auth_token = os.environ.get("AUTH_TOKEN", "")
+    if not auth_token:
+        return None, None
+
+    # Where clients reach this server; OAuth metadata has to advertise it
+    public_url = os.environ.get("PUBLIC_URL", "http://localhost:8000").rstrip("/")
+    settings = AuthSettings(
+        issuer_url=public_url,
+        resource_server_url=f"{public_url}/mcp",
+        client_registration_options=ClientRegistrationOptions(enabled=True),
+    )
+    return settings, BookeoOAuthProvider(auth_token, public_url)
 
 
-class BearerTokenAuthMiddleware(BaseHTTPMiddleware):
-    """Middleware that validates Bearer token from Authorization header."""
+auth_settings, auth_provider = get_auth()
 
-    async def dispatch(self, request: Request, call_next):
-        expected_token = os.environ.get("AUTH_TOKEN", "")
+mcp = FastMCP(
+    "Bookeo",
+    transport_security=get_transport_security(),
+    auth=auth_settings,
+    auth_server_provider=auth_provider,
+)
 
-        # Skip auth if no token is configured
-        if not expected_token:
-            return await call_next(request)
+if auth_provider is not None:
 
-        auth_header = request.headers.get("authorization", "")
-
-        if not auth_header:
-            return JSONResponse(
-                {"error": "Access denied: missing Authorization header"},
-                status_code=401,
-            )
-
-        if not auth_header.lower().startswith("bearer "):
-            return JSONResponse(
-                {"error": "Access denied: invalid Authorization header format"},
-                status_code=401,
-            )
-
-        token = auth_header[7:].strip()  # Skip "Bearer " prefix
-
-        if token != expected_token:
-            return JSONResponse(
-                {"error": "Access denied: invalid token"},
-                status_code=401,
-            )
-
-        return await call_next(request)
+    @mcp.custom_route("/login", methods=["GET", "POST"])
+    async def login(request: Request) -> Response:
+        return await auth_provider.handle_login(request)
 
 
 def parse_args() -> argparse.Namespace:
@@ -331,13 +331,6 @@ async def get_booking_payments(booking_number: str) -> dict:
         return {"error": f"Could not fetch payments: {str(e)}"}
 
 
-def create_authenticated_app():
-    """Create the Starlette app with authentication middleware."""
-    app = mcp.streamable_http_app()
-    app.add_middleware(BearerTokenAuthMiddleware)
-    return app
-
-
 def main():
     """Run the MCP server with the configured transport."""
     args = parse_args()
@@ -345,8 +338,7 @@ def main():
     if args.transport == "streamable-http":
         import uvicorn
 
-        app = create_authenticated_app()
-        uvicorn.run(app, host=args.host, port=args.port)
+        uvicorn.run(mcp.streamable_http_app(), host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
 
