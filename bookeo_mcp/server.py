@@ -8,6 +8,7 @@ from typing import Optional
 from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -78,6 +79,8 @@ mcp = FastMCP(
     auth=auth_settings,
     auth_server_provider=auth_provider,
 )
+
+READ_ONLY = ToolAnnotations(readOnlyHint=True)
 
 if auth_provider is not None:
 
@@ -161,7 +164,7 @@ def analyze_payment(payment: dict) -> dict:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_bookings_by_customer(
     customer_name: str = "", customer_email: str = "", days_back: int = 90
 ) -> list[dict]:
@@ -211,7 +214,7 @@ async def search_bookings_by_customer(
     return results
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def get_booking(booking_number: str) -> dict:
     """
     Look up a specific booking by its booking number.
@@ -244,7 +247,7 @@ async def get_booking(booking_number: str) -> dict:
         return {"error": f"Booking not found or API error: {str(e)}"}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def search_bookings_by_date(
     start_date: str, end_date: str, include_canceled: bool = False
 ) -> list[dict]:
@@ -294,7 +297,7 @@ async def search_bookings_by_date(
     return results
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY)
 async def get_booking_payments(booking_number: str) -> dict:
     """
     Get payment details for a specific booking.
