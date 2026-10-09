@@ -251,13 +251,17 @@ async def search_bookings_by_date(
     """
     Find all bookings within a date range.
 
+    The date range filters on game date (start_time), not booking date.
+
     Args:
         start_date: Start date in YYYY-MM-DD format
-        end_date: End date in YYYY-MM-DD format
+        end_date: End date in YYYY-MM-DD format (inclusive)
         include_canceled: Whether to include canceled bookings
 
     Returns:
-        List of bookings with summary info
+        List of bookings with summary info. Each booking carries two distinct
+        dates: start_time (when the game is played) and creation_time (when the
+        booking was made).
     """
     try:
         start_time = datetime.strptime(start_date, "%Y-%m-%d")
@@ -279,6 +283,7 @@ async def search_bookings_by_date(
             {
                 "booking_number": booking.get("bookingNumber"),
                 "start_time": booking.get("startTime"),
+                "creation_time": booking.get("creationTime"),
                 "product_name": booking.get("productName"),
                 "customer": format_customer(booking),
                 "participants": format_participants(booking),
