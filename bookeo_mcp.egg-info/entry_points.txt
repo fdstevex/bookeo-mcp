@@ -1,2 +1,0 @@
-[console_scripts]
-bookeo-mcp = bookeo_mcp.server:main
